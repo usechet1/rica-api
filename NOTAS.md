@@ -71,6 +71,3 @@ referenciando y cómo, sin tener que ir a buscar en la implementación.
    `InvestigadorRegistradoListener`. Se publica cada vez que se crea un investigador;
    por ahora el "otro lado" del evento es apenas un `log.info(...)`, pero el enganche ya
    queda listo para cuando haya algo más interesante que reaccionar a ese evento.
-
-Nada de esto cambió el comportamiento externo: `POST /api/investigadores` y
-`POST /api/publicaciones` responden exactamente igual que antes. 
