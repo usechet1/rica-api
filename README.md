@@ -1,10 +1,10 @@
 # rica-api
 
-Registro de Investigadores y publicaciones — UPTC. Proyecto base (fin del
-Tutorial 6 del mini-curso Spring Boot) ya refactorizado según el taller de
-Lección 3 (DDD: modelo anémico → modelo rico).
+Registro de Investigadores y publicaciones de la UPTC. Nace del Tutorial 6 del
+mini-curso de Spring Boot y luego se refactorizó siguiendo el taller de
+Lección 3 (DDD: pasar de un modelo anémico a uno rico).
 
-## Arrancar
+## Cómo levantarlo
 
 ```bash
 docker-compose up -d          # PostgreSQL (investigadores) + MongoDB (publicaciones)
@@ -22,7 +22,7 @@ mvn test
 - `POST /api/investigadores` — { nombreCompleto, correoInstitucional, grupoInvestigacion }
 - `POST /api/publicaciones` — { titulo, investigadorCorreo, anio }
 
-## Estructura
+## Cómo está organizado
 
 ```
 src/main/java/com/rica/ricaapi/
@@ -33,5 +33,5 @@ src/main/java/com/rica/ricaapi/
                      (Servicio de Dominio), repositorio, controlador REST.
 ```
 
-Ver `NOTAS.md` para las respuestas escritas del taller (Lenguaje Ubicuo y
+En `NOTAS.md` están las respuestas del taller (lo del Lenguaje Ubicuo y el
 límite del Agregado).
