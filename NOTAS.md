@@ -73,5 +73,4 @@ referenciando y cómo, sin tener que ir a buscar en la implementación.
    queda listo para cuando haya algo más interesante que reaccionar a ese evento.
 
 Nada de esto cambió el comportamiento externo: `POST /api/investigadores` y
-`POST /api/publicaciones` responden exactamente igual que antes. Lo que cambió es lo
-que hay por dentro, que ahora está mejor pensado.
+`POST /api/publicaciones` responden exactamente igual que antes. 
