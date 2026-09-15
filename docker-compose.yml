@@ -1,0 +1,23 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: rica
+      POSTGRES_USER: rica
+      POSTGRES_PASSWORD: rica
+    ports:
+      - "5432:5432"
+    volumes:
+      - rica_postgres_data:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - rica_mongo_data:/data/db
+
+volumes:
+  rica_postgres_data:
+  rica_mongo_data:
