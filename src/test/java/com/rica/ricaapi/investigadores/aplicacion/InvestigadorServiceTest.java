@@ -1,5 +1,8 @@
-package com.rica.ricaapi.investigadores;
+package com.rica.ricaapi.investigadores.aplicacion;
 
+import com.rica.ricaapi.investigadores.dominio.CorreoDuplicadoException;
+import com.rica.ricaapi.investigadores.dominio.CorreoInstitucional;
+import com.rica.ricaapi.investigadores.dominio.Investigador;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -14,7 +17,7 @@ import static org.mockito.Mockito.when;
 class InvestigadorServiceTest {
 
     @Mock
-    private InvestigadorRepository investigadorRepository;
+    private RepositorioInvestigadores repositorioInvestigadores;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -25,14 +28,14 @@ class InvestigadorServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        investigadorFactory = new InvestigadorFactory(investigadorRepository, eventPublisher);
-        investigadorService = new InvestigadorService(investigadorFactory, investigadorRepository);
+        investigadorFactory = new InvestigadorFactory(repositorioInvestigadores, eventPublisher);
+        investigadorService = new InvestigadorService(repositorioInvestigadores, investigadorFactory);
     }
 
     @Test
     void registraUnInvestigadorNuevo() {
-        when(investigadorRepository.existsByCorreoInstitucional_Valor("ana.torres@uptc.edu.co")).thenReturn(false);
-        when(investigadorRepository.save(any(Investigador.class))).thenAnswer(inv -> {
+        when(repositorioInvestigadores.existeCorreo("ana.torres@uptc.edu.co")).thenReturn(false);
+        when(repositorioInvestigadores.guardar(any(Investigador.class))).thenAnswer(inv -> {
             Investigador i = inv.getArgument(0);
             return new Investigador(1L, i.getNombreCompleto(), i.getCorreoInstitucional(), i.getGrupoInvestigacion());
         });
@@ -45,7 +48,7 @@ class InvestigadorServiceTest {
 
     @Test
     void registrarRechazaCorreoInstitucionalDuplicado() {
-        when(investigadorRepository.existsByCorreoInstitucional_Valor("ana.torres@uptc.edu.co")).thenReturn(true);
+        when(repositorioInvestigadores.existeCorreo("ana.torres@uptc.edu.co")).thenReturn(true);
 
         assertThrows(CorreoDuplicadoException.class, () ->
             investigadorService.registrar("Ana Torres", "ana.torres@uptc.edu.co", "GIT-UPTC"));
