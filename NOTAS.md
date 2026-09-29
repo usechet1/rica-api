@@ -139,3 +139,46 @@ no lo hice.
 
 Al final, por fuera todo responde igual que antes: mismos endpoints, mismas respuestas.
 El cambio fue de organización interna, que era justamente la idea del taller.
+
+---
+
+# Taller Lección 5 — Descomposición en dos servicios
+
+## El corte: qué va en cada servicio
+
+| Paquete / clase actual | Destino |
+|---|---|
+| `investigadores.*` (dominio, aplicacion, infraestructura) | `investigadores-service` |
+| `publicaciones.*` | `publicaciones-service` |
+| `comun.GlobalExceptionHandler`, `comun.ApiError` | Se duplica en ambos, adaptado: cada servicio maneja solo sus propias excepciones. Ya no hay un único `@RestControllerAdvice` compartido |
+| `RecursoNoEncontradoException` | No existía en rica-api. Se crea solo en `publicaciones-service`, para el caso "no existe el investigador" que ahora decide `VerificadorInvestigador`. `investigadores-service` sigue usando su `InvestigadorNoEncontradoException` |
+| `plataforma.StatusController` | No existía en rica-api. Cada servicio tiene su propio `/api/status` mínimo |
+| `plataforma.CorsConfig`, `ArranqueInformativo`, `SaludoInstitucionalService` | No existen en esta copia de rica-api, así que no hay nada que mover ni descartar |
+
+Diferencias entre mi rica-api y lo que asume la guía:
+
+- **No había migraciones Flyway.** rica-api creaba la tabla con `ddl-auto=update`. En
+  `investigadores-service` escribí `V1__crear_tabla_investigador.sql` a partir de la
+  entidad `Investigador`, y dejé `ddl-auto: validate` para que Hibernate solo verifique
+  que el esquema coincide.
+- **La costura no era `existsByCorreoInstitucional_Valor`.** Después del taller
+  hexagonal, `PublicacionService` usaba `RepositorioInvestigadores.listarTodos()` y
+  filtraba por correo en memoria.
+- **`LimitePublicacionesAnualesService` sí cruzaba dominios**: recibía un
+  `Investigador`, solo para leer su correo. Ahora recibe solo la `Publicacion` y usa
+  `getInvestigadorCorreo()`, así que no conoce ninguna clase de investigadores.
+
+## Duplicar `comun` es una decisión de arquitectura, no un descuido
+
+Es la primera consecuencia real de Database per Service y del despliegue independiente.
+Compartir un único `@RestControllerAdvice` exigiría una librería común versionada por
+separado (un *shared kernel*, patrón de la guía de Lección 3). Eso acopla el ritmo de
+despliegue de los dos servicios. Por ahora, duplicar unas pocas clases de manejo de
+errores cuesta menos que ese acoplamiento.
+
+## La dependencia no desapareció: se hizo visible
+
+`PublicacionService` ahora depende del puerto `VerificadorInvestigador`, diseñado desde
+publicaciones. Su única implementación, `VerificadorInvestigadorPendiente`, devuelve
+siempre `true`. Hoy se puede registrar una publicación con un correo inventado. Esa es
+la brecha que cierra el Taller de la Lección 6: hacer que la pregunta pase por la red.
