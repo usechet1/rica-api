@@ -71,3 +71,71 @@ referenciando y cómo, sin tener que ir a buscar en la implementación.
    `InvestigadorRegistradoListener`. Se publica cada vez que se crea un investigador;
    por ahora el "otro lado" del evento es apenas un `log.info(...)`, pero el enganche ya
    queda listo para cuando haya algo más interesante que reaccionar a ese evento.
+
+---
+
+# Taller Lección 4 — Hexagonal en rica-api
+
+## 1. Auditoría: ¿qué era puerto y qué era adaptador antes de tocar nada?
+
+Lo curioso de este paso es que el hexágono ya estaba ahí, a medias, solo que nadie lo
+había llamado así. Antes de mover cualquier archivo me senté a ver qué papel cumplía cada
+clase.
+
+**`InvestigadorRepository`: ¿puerto primario o secundario?**
+Secundario. La pregunta que me ayudó fue "¿quién llama a quién?". Aquí es el propio
+sistema el que dice "guárdame esto" o "búscame aquello", y la llamada sale hacia afuera,
+hacia la base de datos. Nadie de afuera llama a `InvestigadorRepository`; es el núcleo el
+que lo usa. Por eso es secundario.
+
+**`InvestigadorController`: ¿adaptador primario o secundario? ¿Qué tecnología envuelve?**
+Primario. Es la puerta de entrada: alguien desde afuera (Postman, un frontend, quien sea)
+manda una petición HTTP, y el controller la convierte en algo que el sistema entiende.
+Lo que envuelve es HTTP/REST con Spring Web (`@RestController`). La llamada empieza
+afuera y entra, justo al revés que el repositorio.
+
+**`InvestigadorService` era una clase sin interfaz: ¿qué faltaba?**
+Faltaba el puerto primario: una interfaz que dijera *qué* promete el sistema (registrar,
+listar, buscar) sin amarrarse a *cómo* lo hace. El controller dependía directamente de
+la clase concreta, así que si algún día quería cambiar la implementación, tenía que tocar
+el controller también. Esa interfaz terminó siendo `InvestigadorUseCase`.
+
+**`InvestigadorFactory` (del taller anterior): ¿núcleo o adaptador?**
+Núcleo. Me fijé en los imports, como sugiere la guía: no tiene nada de JPA, ni de HTTP,
+ni de Mongo. Solo usa clases del propio dominio y el publicador de eventos de Spring, que
+es una abstracción, no una tecnología concreta. Si una clase puede vivir sin saber qué
+base de datos o qué framework web hay afuera, es núcleo.
+
+## Lo que fui haciendo en el código
+
+1. **Puerto primario**: creé `InvestigadorUseCase` y puse a `InvestigadorService` a
+   implementarlo. Ahora el controller depende de la interfaz y no de la clase. Como la
+   interfaz promete `listarTodos` y `buscarPorId`, aproveché para agregar los dos GET
+   que faltaban; no tenía sentido prometer algo que nadie usa.
+2. **Puerto secundario pequeño**: `JpaRepository` trae como treinta métodos y el sistema
+   solo necesitaba cuatro. Hice `RepositorioInvestigadores` con esos cuatro (`listarTodos`,
+   `buscarPorId`, `existeCorreo`, `guardar`) y un adaptador,
+   `InvestigadorRepositoryJpaAdapter`, que por dentro sigue usando Spring Data JPA. No
+   borré `InvestigadorRepository`: sigue ahí, pero ya solo lo conoce el adaptador.
+3. **Carpetas por rol**: moví todo a `dominio`, `aplicacion` e `infraestructura` (con
+   `entrada.web`, `salida.persistencia` y `eventos`). Ahora con solo ver las carpetas se
+   entiende qué es el corazón del sistema y qué es "cableado" hacia afuera. Fue el paso
+   más tedioso, casi todo por imports que quedaban apuntando al paquete viejo.
+4. **Un repositorio falso para probar sin base de datos**: `RepositorioInvestigadoresFalso`
+   guarda todo en un `Map`, y `InvestigadorServiceConFalsoTest` usa el servicio real con
+   ese falso: sin Spring, sin Mockito, sin Postgres. Corre en milisegundos. Para mí es la
+   prueba de que la separación sirve de verdad: al servicio no le importa si detrás hay
+   un `Map` o una base de datos.
+
+**Algo que no quedó igual al enunciado:** mi `InvestigadorFactory` también recibe el
+publicador de eventos, porque en el taller anterior hice el reto del evento
+`InvestigadorRegistrado`. En el test con el falso le paso un publicador que no hace nada
+(`evento -> { }`), así sigue sin depender de Spring.
+
+**Publicaciones:** solo le cambié lo necesario para que siguiera compilando.
+`PublicacionService` ahora usa el puerto `RepositorioInvestigadores` en lugar del
+repositorio de JPA. Darle a publicaciones sus propios puertos era el reto opcional 7-B y
+no lo hice.
+
+Al final, por fuera todo responde igual que antes: mismos endpoints, mismas respuestas.
+El cambio fue de organización interna, que era justamente la idea del taller.
