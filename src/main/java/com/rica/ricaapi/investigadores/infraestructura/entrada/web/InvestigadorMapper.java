@@ -1,5 +1,6 @@
-package com.rica.ricaapi.investigadores;
+package com.rica.ricaapi.investigadores.infraestructura.entrada.web;
 
+import com.rica.ricaapi.investigadores.dominio.Investigador;
 import org.springframework.stereotype.Component;
 
 @Component
