@@ -1,11 +1,11 @@
-package com.rica.ricaapi.investigadores;
+package com.rica.ricaapi.investigadores.infraestructura.entrada.web;
 
 public class InvestigadorResponse {
 
-    private Long id;
-    private String nombreCompleto;
-    private String correoInstitucional;
-    private String grupoInvestigacion;
+    private final Long id;
+    private final String nombreCompleto;
+    private final String correoInstitucional;
+    private final String grupoInvestigacion;
 
     public InvestigadorResponse(Long id, String nombreCompleto, String correoInstitucional, String grupoInvestigacion) {
         this.id = id;
