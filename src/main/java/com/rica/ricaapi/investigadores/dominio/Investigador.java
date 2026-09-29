@@ -1,4 +1,4 @@
-package com.rica.ricaapi.investigadores;
+package com.rica.ricaapi.investigadores.dominio;
 
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -9,14 +9,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
 /**
- * Raíz del Agregado Investigador.
+ * Raíz del Agregado Investigador — núcleo del hexágono.
  *
- * Límite del Agregado (ver NOTAS.md para el razonamiento completo):
- *   - Dentro del límite: id, nombreCompleto, correoInstitucional (Value Object),
- *     grupoInvestigacion.
- *   - Publicacion queda FUERA de este límite a propósito: se referencia solo
- *     por el correo del investigador (String), nunca se carga la lista completa
- *     de publicaciones dentro de Investigador.
+ * Límite del Agregado (ver NOTAS.md): id, nombreCompleto, correoInstitucional
+ * (Value Object), grupoInvestigacion. Publicacion queda fuera a propósito.
  */
 @Entity
 public class Investigador {
@@ -54,6 +50,10 @@ public class Investigador {
         return id;
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getNombreCompleto() {
         return nombreCompleto;
     }
@@ -78,8 +78,6 @@ public class Investigador {
         this.grupoInvestigacion = grupoInvestigacion;
     }
 
-    // La igualdad de una Entidad se basa solo en su identidad (id),
-    // nunca en el valor de sus atributos.
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
