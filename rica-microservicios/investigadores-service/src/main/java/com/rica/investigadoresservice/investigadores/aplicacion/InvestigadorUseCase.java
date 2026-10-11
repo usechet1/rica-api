@@ -12,4 +12,8 @@ public interface InvestigadorUseCase {
     Investigador buscarPorId(Long id);
 
     Investigador registrar(String nombreCompleto, String correoInstitucional, String grupoInvestigacion);
+
+    void iniciarEliminacion(Long id);
+
+    void confirmarEliminacion(String correoInstitucional);
 }

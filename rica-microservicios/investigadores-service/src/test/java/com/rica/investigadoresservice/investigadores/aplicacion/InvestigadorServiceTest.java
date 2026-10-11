@@ -22,6 +22,9 @@ class InvestigadorServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private PublicadorEventos publicadorEventos;
+
     private InvestigadorFactory investigadorFactory;
     private InvestigadorService investigadorService;
 
@@ -29,7 +32,7 @@ class InvestigadorServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         investigadorFactory = new InvestigadorFactory(repositorioInvestigadores, eventPublisher);
-        investigadorService = new InvestigadorService(repositorioInvestigadores, investigadorFactory);
+        investigadorService = new InvestigadorService(repositorioInvestigadores, investigadorFactory, publicadorEventos);
     }
 
     @Test

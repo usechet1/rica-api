@@ -5,6 +5,7 @@ import com.rica.investigadoresservice.investigadores.dominio.Investigador;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,5 +51,12 @@ public class InvestigadorController {
     @GetMapping("/{id}")
     public InvestigadorResponse buscarPorId(@PathVariable Long id) {
         return investigadorMapper.aResponse(investigadorService.buscarPorId(id));
+    }
+
+    // 202 y no 204: la eliminación es asíncrona (Saga), todavía no terminó.
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        investigadorService.iniciarEliminacion(id);
+        return ResponseEntity.accepted().build();
     }
 }

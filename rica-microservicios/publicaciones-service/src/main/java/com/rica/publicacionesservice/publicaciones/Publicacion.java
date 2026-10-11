@@ -17,6 +17,7 @@ public class Publicacion {
     private String titulo;
     private String investigadorCorreo;
     private Integer anio;
+    private boolean huerfana;
 
     protected Publicacion() {
     }
@@ -54,5 +55,13 @@ public class Publicacion {
 
     public void setAnio(Integer anio) {
         this.anio = anio;
+    }
+
+    public boolean isHuerfana() {
+        return huerfana;
+    }
+
+    public void marcarComoHuerfana() {
+        this.huerfana = true;
     }
 }

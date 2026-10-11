@@ -1,6 +1,7 @@
 package com.rica.publicacionesservice.comun;
 
 import com.rica.publicacionesservice.publicaciones.LimiteAnualExcedidoException;
+import com.rica.publicacionesservice.publicaciones.ServicioNoDisponibleException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -29,5 +30,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ResponseEntity<ApiError> manejarNoEncontrado(RecursoNoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(ex.getMessage()));
+    }
+
+    // investigadores-service caído o circuito abierto → 503
+    @ExceptionHandler(ServicioNoDisponibleException.class)
+    public ResponseEntity<ApiError> manejarServicioNoDisponible(ServicioNoDisponibleException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ApiError(ex.getMessage()));
     }
 }

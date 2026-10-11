@@ -4,11 +4,11 @@ import com.rica.publicacionesservice.comun.RecursoNoEncontradoException;
 import org.springframework.stereotype.Service;
 
 /**
- * NOTA (taller descomposición): publicaciones-service ya no conoce ninguna
- * clase de investigadores. La verificación del investigador pasa por el
- * puerto VerificadorInvestigador; hoy su único adaptador es
- * VerificadorInvestigadorPendiente, que acepta cualquier correo hasta que el
- * Taller de la Lección 6 lo reemplace por una llamada real por red.
+ * publicaciones-service no conoce ninguna clase de investigadores. La
+ * verificación del investigador pasa por el puerto VerificadorInvestigador,
+ * cuyo adaptador (VerificadorInvestigadorGrpc) pregunta a
+ * investigadores-service por gRPC. Al cambiar de adaptador en el Taller de la
+ * Lección 6, esta clase no cambió.
  */
 @Service
 public class PublicacionService {
