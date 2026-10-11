@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: investigadores-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/rica
+    username: rica
+    password: rica
+  jpa:
+    hibernate:
+      ddl-auto: validate

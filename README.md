@@ -1,7 +1,9 @@
 # rica-api (archivado)
 
 Este proyecto fue dividido en `investigadores-service` y `publicaciones-service`
-a partir del Taller de la Lección 5. Ver `../rica-microservicios/`.
+a partir del Taller de la Lección 5. Los dos servicios están en la carpeta
+`rica-microservicios/` de este mismo repositorio (ramas `taller-descomposicion`
+en adelante).
 
 ---
 
