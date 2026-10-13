@@ -1,0 +1,52 @@
+package com.rica.investigadoresservice.investigadores.aplicacion;
+
+import com.rica.investigadoresservice.investigadores.dominio.Investigador;
+
+import java.util.*;
+
+/**
+ * Test double hecho a mano, sin ningún framework de mocking. Demuestra que
+ * el núcleo solo necesita algo que cumpla el contrato de RepositorioInvestigadores.
+ */
+class RepositorioInvestigadoresFalso implements RepositorioInvestigadores {
+
+    private final Map<Long, Investigador> almacen = new LinkedHashMap<>();
+    private long siguienteId = 1;
+
+    @Override
+    public List<Investigador> listarTodos() {
+        return new ArrayList<>(almacen.values());
+    }
+
+    @Override
+    public Optional<Investigador> buscarPorId(Long id) {
+        return Optional.ofNullable(almacen.get(id));
+    }
+
+    @Override
+    public boolean existeCorreo(String correoInstitucional) {
+        return almacen.values().stream()
+            .anyMatch(i -> i.getCorreoInstitucional().valor().equals(correoInstitucional));
+    }
+
+    @Override
+    public Investigador guardar(Investigador investigador) {
+        if (investigador.getId() == null) {
+            investigador.setId(siguienteId++);
+        }
+        almacen.put(investigador.getId(), investigador);
+        return investigador;
+    }
+
+    @Override
+    public Optional<Investigador> buscarPorCorreo(String correoInstitucional) {
+        return almacen.values().stream()
+            .filter(i -> i.getCorreoInstitucional().valor().equals(correoInstitucional))
+            .findFirst();
+    }
+
+    @Override
+    public void eliminar(Investigador investigador) {
+        almacen.remove(investigador.getId());
+    }
+}
