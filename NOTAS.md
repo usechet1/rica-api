@@ -365,6 +365,32 @@ llega a producción: si construyera una imagen distinta para cada entorno, nunca
 seguro de que la que probé es la que se despliega. La configuración (puertos, direcciones de
 bases de datos, contraseñas) cambia entre entornos; el código no debería.
 
+## Paso 6: persistencia políglota — tabla de decisión de almacenes
+
+Con Redis vi los cuatro casos de cache-aside: `GET` con el JSON (hit), `TTL` en 30, después de
+30 segundos `GET` vacío y `TTL` en `-2` (miss: la clave ya no existe), y `DEL` para invalidar.
+
+Para la tabla elegí el módulo que me toca en el proyecto de grupo (Cadena de Frío): **Alertas e
+incidentes**, que hoy es `alertas-service`.
+
+| Tipo de dato | Almacén | Por qué | Consulta principal que lo justifica | Costo de añadirlo |
+|---|---|---|---|---|
+| Alertas (envío, sensor, severidad, resuelta) | **PostgreSQL** (`alertas-db`) | Necesito transacciones: generar la alerta y marcar el evento como procesado tienen que pasar juntos o ninguno | `existsByEnvioIdAndSeveridadAndResueltaFalse`: "¿este envío tiene alertas críticas sin resolver?" (en mi prueba, `true` con la alerta CRITICA y `false` después del `PATCH /resolver`) | Ninguno extra: ya lo usamos, con Flyway |
+| Eventos ya procesados (idempotencia) | **PostgreSQL**, misma base que las alertas | La clave primaria rechaza el duplicado y comparte transacción con la alerta; en Redis o Mongo perdería esa atomicidad | `existsById("sensores.lecturas-fuera-de-rango-0-1")`: al reentregar los eventos, el log dijo "ya procesado" y la base siguió con 2 alertas | Una tabla más (`eventos_procesados`), que crece con cada evento |
+| Lecturas fuera de rango en tránsito | **Kafka** (`sensores.lecturas-fuera-de-rango`) | No es una base de consulta sino un log: guarda los eventos aunque Alertas esté caído y permite releerlos | Leer desde el último offset del grupo `alertas-service` | Operar un broker (`cadena-kafka`); hoy uno solo, sin réplicas |
+| Mensajes que no se pudieron procesar | **Kafka DLT** (`...lecturas-fuera-de-rango.DLT`) | Conserva el mensaje original con cabeceras de diagnóstico | Leer la DLT con `print.headers=true`: en mi prueba, `StreamReadException` para `esto no es json` | Casi nada, pero nadie la vigila (necesita una alerta) |
+| Histórico de lecturas para reportes | **TimescaleDB** (evaluada, no implementada) | Son series de tiempo de alto volumen: consultas por rango de fechas y promedios por hora | "Temperatura promedio por hora del envío X en las últimas 24 horas" | Otra base que aprender y operar; hoy las lecturas son simuladas, así que no lo justifico todavía |
+| "¿Hay críticas sin resolver?" muy consultado | **Redis** como caché (descartado por ahora) | Ahorraría consultas a PostgreSQL | La misma consulta del cierre de envíos | Riesgo de leer un `false` viejo justo cuando acaba de llegar una crítica: invalidar mal rompe la integridad del cierre |
+
+**¿Necesito más de una tecnología?** Para Alertas, hoy no: una base relacional bien usada basta.
+Las alertas y los eventos procesados necesitan estar en la misma transacción, y eso solo lo da la
+misma base; la consulta del cierre es por un índice (`idx_alertas_envio`) y responde rápido sin
+caché. Kafka no lo cuento como "otra base", sino como el canal por donde llegan los eventos, y ya
+lo necesitábamos para no perder lecturas. Redis lo descarté a propósito: con el cache-aside que
+probé, un `GET` puede devolver un dato viejo hasta que pase el TTL o alguien haga `DEL`, y en el
+cierre de un envío un `false` viejo significa cerrar un envío con la cadena de frío rota. La
+única segunda tecnología que sí agregaría es TimescaleDB, y solo cuando lleguen lecturas reales.
+
 ## Lectura opcional: ¿qué haría falta para correr consultas-service como contenedor?
 
 1. Un Dockerfile igual al de Eureka, pero con `EXPOSE 8083`.
