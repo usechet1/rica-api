@@ -1,6 +1,6 @@
 package com.rica.investigadoresservice.investigadores.infraestructura.entrada.web;
 
-import com.rica.investigadoresservice.investigadores.aplicacion.InvestigadorUseCase;
+import com.rica.investigadoresservice.investigadores.aplicacion.puertos.InvestigadorUseCase;
 import com.rica.investigadoresservice.investigadores.dominio.Investigador;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

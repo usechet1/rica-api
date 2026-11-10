@@ -1,5 +1,6 @@
 package com.rica.investigadoresservice.investigadores.aplicacion;
 
+import com.rica.investigadoresservice.investigadores.aplicacion.puertos.RepositorioInvestigadores;
 import com.rica.investigadoresservice.investigadores.dominio.Investigador;
 
 import java.util.*;

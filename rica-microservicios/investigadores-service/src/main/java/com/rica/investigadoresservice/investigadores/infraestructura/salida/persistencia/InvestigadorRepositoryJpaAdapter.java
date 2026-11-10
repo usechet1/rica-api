@@ -1,6 +1,6 @@
 package com.rica.investigadoresservice.investigadores.infraestructura.salida.persistencia;
 
-import com.rica.investigadoresservice.investigadores.aplicacion.RepositorioInvestigadores;
+import com.rica.investigadoresservice.investigadores.aplicacion.puertos.RepositorioInvestigadores;
 import com.rica.investigadoresservice.investigadores.dominio.Investigador;
 import org.springframework.stereotype.Component;
 

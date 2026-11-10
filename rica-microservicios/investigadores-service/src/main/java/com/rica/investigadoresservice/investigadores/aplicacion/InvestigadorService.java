@@ -1,5 +1,8 @@
 package com.rica.investigadoresservice.investigadores.aplicacion;
 
+import com.rica.investigadoresservice.investigadores.aplicacion.puertos.InvestigadorUseCase;
+import com.rica.investigadoresservice.investigadores.aplicacion.puertos.PublicadorEventos;
+import com.rica.investigadoresservice.investigadores.aplicacion.puertos.RepositorioInvestigadores;
 import com.rica.investigadoresservice.investigadores.dominio.Investigador;
 import com.rica.investigadoresservice.investigadores.dominio.InvestigadorNoEncontradoException;
 import org.slf4j.Logger;

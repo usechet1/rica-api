@@ -3,7 +3,7 @@ package com.rica.investigadoresservice.investigadores.infraestructura.entrada.gr
 import com.rica.investigadoresservice.grpc.InvestigadorGrpcGrpc;
 import com.rica.investigadoresservice.grpc.InvestigadorRequest;
 import com.rica.investigadoresservice.grpc.InvestigadorResponse;
-import com.rica.investigadoresservice.investigadores.aplicacion.RepositorioInvestigadores;
+import com.rica.investigadoresservice.investigadores.aplicacion.puertos.RepositorioInvestigadores;
 import io.grpc.stub.StreamObserver;
 import org.springframework.stereotype.Service;
 

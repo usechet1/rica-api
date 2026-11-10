@@ -1,6 +1,6 @@
 package com.rica.investigadoresservice.investigadores.infraestructura.entrada.mensajeria;
 
-import com.rica.investigadoresservice.investigadores.aplicacion.InvestigadorUseCase;
+import com.rica.investigadoresservice.investigadores.aplicacion.puertos.InvestigadorUseCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
