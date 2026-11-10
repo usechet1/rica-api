@@ -247,3 +247,69 @@ ningún mensaje bueno que viene detrás se procesa: un solo mensaje roto detiene
 consumidor. Y es peor que mandarlo a una DLT, porque la DLT deja el sistema funcionando **y**
 conserva el mensaje con el diagnóstico del error, mientras que reintentar sin fin no consigue
 ninguna de las dos cosas.
+
+---
+
+# Taller Lección 10 — Observabilidad: seguir una Saga con un id de correlación
+
+## Lo que observé
+
+- **Salud:** los tres servicios responden `UP` en `/actuator/health`. Investigadores muestra
+  el componente `db` (PostgreSQL) y publicaciones y consultas muestran `mongo`.
+- **Un solo id para toda la Saga:** eliminé a Mateo por el Gateway con
+  `X-Correlation-Id: demo-001` y buscando ese id encontré, en orden:
+  `[investigadores-service,demo-001]` inicio de la eliminación →
+  `[publicaciones-service,demo-001]` 2 publicaciones marcadas como huérfanas →
+  `[investigadores-service,demo-001]` confirmación y borrado.
+- **Métricas:** `http.server.requests` da el COUNT, TOTAL_TIME y MAX (tasa y duración), y con
+  `?tag=status:404` se ven los errores por separado: son las tres señales del método RED.
+- **Lag:** con consultas-service detenido registré 3 investigadores y el lag de
+  `consultas-service-v2` subió a 3; al arrancarlo de nuevo volvió a 0.
+- **Saga atascada:** con publicaciones-service apagado, Camila quedó en `EN_ELIMINACION` y el
+  grupo `publicaciones-service` tenía lag 1. Al volver a arrancarlo la Saga terminó sola, y
+  el id `demo-002` seguía ahí después de la pausa.
+
+Un detalle que agregué: la guía espera una línea de "inicio de la eliminación" con el id en
+investigadores-service, pero `InvestigadorService` no escribía nada en ese momento. Le puse un
+`log.info` en `iniciarEliminacion`.
+
+## La brecha en consultas-service
+
+En los logs de consultas-service las líneas de la misma Saga salen como
+`[consultas-service,]`, sin id. El evento sí trae el `correlationId` (lo copia el Outbox),
+pero `ProyeccionListener` no lo lee. Se cerraría con el mismo patrón del paso 5: en cada
+método del listener, leer `correlationId` del JSON y envolver la llamada al proyector en
+`try (MDC.MDCCloseable c = MDC.putCloseable("correlationId", id)) { ... }`. Así las líneas
+`Proyección: ...` también quedarían dentro de la traza.
+
+## Paso 9: ¿y si nunca vuelve?
+
+**1. Si publicaciones-service no pudiera marcar las publicaciones por un error permanente,
+¿en qué estado quedaría el investigador y quién se daría cuenta?**
+Quedaría para siempre en `EN_ELIMINACION`: no se borra, pero tampoco vuelve a estar activo.
+Hoy nadie se daría cuenta solo, porque no hay ninguna alerta; lo notaría un usuario que vea
+al investigador "trabado", o alguien que revise a mano el lag o el log de errores (si el
+mensaje terminara en una DLT, quedaría ahí sin que nadie la mire).
+
+**2. Diseña una compensación.**
+Un temporizador en investigadores-service que revise cada cierto tiempo los investigadores en
+`EN_ELIMINACION` desde hace más de, por ejemplo, 10 minutos. Para esos publicaría un evento
+`investigadores.eliminacion-cancelada` (por el mismo Outbox) y devolvería al investigador a
+`ACTIVO`. Lo consumirían publicaciones-service (para quitar la marca de huérfanas a sus
+publicaciones) y consultas-service (para devolver la ficha a `ACTIVO`). Sería idempotente,
+porque las dos acciones son "poner un estado", no "sumar": aplicar dos veces
+"huerfana = false" o "estado = ACTIVO" deja el mismo resultado.
+
+**3. ¿Qué métrica y alerta definirías para detectar Sagas atascadas?**
+Una métrica con el número de investigadores en `EN_ELIMINACION` desde hace más de 10 minutos
+(un gauge que se calcule con una consulta a la base), y una alerta cuando sea mayor que cero.
+La complementaría con una alerta sobre el lag del grupo `publicaciones-service` en el tópico
+`investigadores.en-eliminacion`: si el lag no baja en unos minutos, el consumidor está caído
+o atascado, que es justo lo que vi en el paso 8.
+
+**4. ¿Coreografía u orquestación si se le agregaran cuatro pasos más?**
+Orquestación. Con dos servicios la coreografía es sencilla, pero con seis pasos el flujo
+quedaría repartido entre muchos listeners y nadie sabría en qué paso va cada Saga; incluso
+con el id de correlación tendría que juntar logs de varios servicios para entenderlo. Un
+orquestador guarda el estado de cada Saga en un solo lugar, y eso hace mucho más fácil ver
+dónde se atascó y lanzar las compensaciones en orden.
