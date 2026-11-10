@@ -313,3 +313,66 @@ quedaría repartido entre muchos listeners y nadie sabría en qué paso va cada 
 con el id de correlación tendría que juntar logs de varios servicios para entenderlo. Un
 orquestador guarda el estado de cada Saga en un solo lugar, y eso hace mucho más fácil ver
 dónde se atascó y lanzar las compensaciones en orden.
+
+---
+
+# Taller Lección 11 — Contenedores y CI
+
+## Paso 2: el Dockerfile multi-etapa
+
+**(a) ¿Por qué se copia primero `pom.xml` y luego `src`?**
+Porque Docker guarda cada instrucción como una capa y la reutiliza mientras lo que entra en
+ella no cambie. Las dependencias dependen solo del `pom.xml`, que casi nunca cambia; el código
+cambia todo el tiempo. Copiando primero el `pom.xml` y descargando las dependencias, esa capa
+pesada queda en caché, y cuando cambio una línea de código solo se recompila lo último. Lo
+comprobé: la primera construcción tardó más de 5 minutos y, después de cambiar un archivo de
+`src/`, tardó menos de 3 segundos.
+
+**(b) ¿Qué contiene la imagen final y qué no?**
+Contiene solo el JRE 25 y el `app.jar` ya compilado. No tiene Maven, ni el JDK, ni el código
+fuente, ni las dependencias sueltas: todo eso se quedó en la etapa `build`, que se descarta.
+Lo verifiqué entrando al contenedor: `java -version` responde, pero `mvn` no existe, y en
+`/app` solo está `app.jar`. Así la imagen es más liviana y tiene menos cosas que puedan
+tener vulnerabilidades.
+
+**(c) ¿Por qué `USER rica`?**
+Para que el proceso no corra como root dentro del contenedor. Si alguien lograra explotar
+una falla de la aplicación, tendría solo los permisos de un usuario normal y no los de
+administrador. Dentro del contenedor, `whoami` responde `rica`.
+
+## Paso 3: qué capas se reutilizaron
+
+- **Primera construcción:** se ejecutó todo (5 min 26 s): descarga de las imágenes base, de
+  las dependencias y la compilación.
+- **Sin cambios:** todas las capas salieron `CACHED` (1.8 s).
+- **Cambiando un archivo de `src/`:** `COPY pom.xml` y `dependency:go-offline` siguieron en
+  `CACHED`; solo se ejecutaron de nuevo `COPY src`, el `package` (1.4 s) y la copia del `.jar`
+  a la imagen final (2.8 s en total).
+
+La imagen pesa 607 MB; la capa con el `.jar` ocupa 60.7 MB.
+
+Sobre el problema de replicación de Eureka: en el log del contenedor aparecía
+`Adding new peer nodes [http://localhost:8761/eureka/]`, es decir, Eureka se veía a sí mismo
+como otro nodo. En mi Mac no llegaron a salir los errores de `Read timed out` (el contenedor
+se respondía a sí mismo rápido), pero la causa estaba ahí. Con `eureka.instance.hostname:
+localhost` esa línea desapareció.
+
+## Paso 5: una sola imagen, varias configuraciones
+
+Con `SERVER_PORT=9000` la misma imagen arrancó en otro puerto sin reconstruirla. Esto es
+mejor que tener una imagen por entorno porque lo que se prueba es exactamente lo mismo que
+llega a producción: si construyera una imagen distinta para cada entorno, nunca estaría
+seguro de que la que probé es la que se despliega. La configuración (puertos, direcciones de
+bases de datos, contraseñas) cambia entre entornos; el código no debería.
+
+## Lectura opcional: ¿qué haría falta para correr consultas-service como contenedor?
+
+1. Un Dockerfile igual al de Eureka, pero con `EXPOSE 8083`.
+2. Una red de Docker compartida con Kafka, MongoDB y Eureka, porque dentro del contenedor
+   `localhost` es el propio contenedor y no mi máquina.
+3. Cambiar por variables de entorno las direcciones: `SPRING_MONGODB_URI=mongodb://publicaciones-mongo:27017/rica_consultas`,
+   `SPRING_KAFKA_BOOTSTRAP_SERVERS=rica-kafka:9092` y la `defaultZone` de Eureka.
+4. Configurar en Kafka un segundo listener para los contenedores: hoy anuncia
+   `localhost:9092`, que desde otro contenedor no sirve.
+5. Ponerlo todo en un mismo `docker-compose.yml` con `depends_on`, para que arranque después
+   de Kafka, Mongo y Eureka.
