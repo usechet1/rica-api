@@ -16,13 +16,16 @@ public class PublicacionService {
     private final PublicacionRepository publicacionRepository;
     private final VerificadorInvestigador verificadorInvestigador;
     private final LimitePublicacionesAnualesService limitePublicacionesAnualesService;
+    private final PublicadorEventosPublicaciones publicadorEventos;
 
     public PublicacionService(PublicacionRepository publicacionRepository,
                                VerificadorInvestigador verificadorInvestigador,
-                               LimitePublicacionesAnualesService limitePublicacionesAnualesService) {
+                               LimitePublicacionesAnualesService limitePublicacionesAnualesService,
+                               PublicadorEventosPublicaciones publicadorEventos) {
         this.publicacionRepository = publicacionRepository;
         this.verificadorInvestigador = verificadorInvestigador;
         this.limitePublicacionesAnualesService = limitePublicacionesAnualesService;
+        this.publicadorEventos = publicadorEventos;
     }
 
     public Publicacion registrar(String titulo, String investigadorCorreo, Integer anio) {
@@ -39,6 +42,9 @@ public class PublicacionService {
                     + " ya alcanzó el máximo de publicaciones para el año " + anio);
         }
 
-        return publicacionRepository.save(nueva);
+        // Solo se anuncia el hecho si el comando terminó bien (CQRS, Lección 8).
+        Publicacion guardada = publicacionRepository.save(nueva);
+        publicadorEventos.publicacionRegistrada(guardada);
+        return guardada;
     }
 }
