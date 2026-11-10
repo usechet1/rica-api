@@ -182,3 +182,68 @@ errores cuesta menos que ese acoplamiento.
 publicaciones. Su única implementación, `VerificadorInvestigadorPendiente`, devuelve
 siempre `true`. Hoy se puede registrar una publicación con un correo inventado. Esa es
 la brecha que cierra el Taller de la Lección 6: hacer que la pregunta pase por la red.
+
+---
+
+# Taller Lección 9 — EDA: consumidores robustos
+
+## Lo que observé
+
+- **Sin defensas:** un mensaje que no era JSON (`esto no es json`) se reintentó 10 veces
+  seguidas sin pausa (`currentAttempts=10`, `interval=0`) y después se descartó. El
+  consumidor siguió, pero el mensaje se perdió sin dejar rastro.
+- **Con la DLT:** el mismo mensaje fue directo a `investigadores.registrados.DLT`, sin
+  reintentos (un JSON roto no se arregla esperando), con cabeceras que dicen de qué tópico
+  venía y por qué falló (`StreamReadException`).
+- **Contador ingenuo:** al regresar el grupo al inicio del tópico, el total pasó de 6 a 12.
+  No hubo ni un error en el log; simplemente el número quedó mal.
+- **Contador idempotente:** con el mismo escenario, el total se quedó en 6 y el log mostró
+  `ya procesado, se ignora` por cada evento repetido.
+
+Un detalle que no estaba en la guía: en Spring Kafka 4 la DLT por defecto se llama
+`<tópico>-dlt`, no `<tópico>.DLT`. Tuve que indicarle el nombre a mano en
+`ManejoErroresConfig`; si no, el mensaje se iba a otro tópico y la DLT de la guía quedaba vacía.
+
+## Paso 7: ¿qué hacemos con la DLT?
+
+**1. ¿Quién debería enterarse cuando llega un mensaje a la DLT, y cómo?**
+El equipo que mantiene `consultas-service`, porque es el que sabe por qué falló su
+consumidor. Yo pondría una alerta automática cuando la DLT reciba mensajes (por ejemplo, si
+llegan más de cero en cinco minutos) y un tablero con cuántos mensajes hay acumulados. Un
+correo por cada mensaje se volvería ruido muy rápido; es mejor una alerta que avise "hay algo
+aquí" y un tablero para ver cuánto.
+
+**2. ¿Cómo se reprocesaría un mensaje después de corregir el error?**
+Reenviándolo al tópico original, pero con una herramienta aparte y no copiándolo a mano, para
+que quede registro de quién lo reenvió y cuándo. Las cabeceras que vi en la DLT
+(`original-topic`, `original-partition`, `original-offset`) ya dicen exactamente de dónde
+salió. Ojo: solo tiene sentido reenviarlo si el consumidor es idempotente; si no, se podría
+procesar dos veces, como pasó con mi contador ingenuo, que saltó de 6 a 12.
+
+**3. ¿Cuándo es válido descartar un mensaje de la DLT, y quién lo decide?**
+Cuando se confirma que el mensaje no tiene arreglo y no representa un hecho real del negocio,
+como el `esto no es json` que mandé a mano: no es un investigador, es basura. Lo debería
+decidir una persona del equipo después de revisarlo, nunca una regla automática, y dejando
+anotado por qué se descartó. Si el mensaje sí era un hecho real (un investigador que se
+registró de verdad), descartarlo significa perder datos.
+
+**4. ¿Qué pasa si el mensaje de la DLT es válido pero llegó a destiempo?**
+Reprocesarlo tarde puede dejar el modelo de lectura en un estado incorrecto. Por ejemplo, si
+un `investigadores.registrados` se reenvía después de que ese investigador ya se eliminó, la
+ficha resucita, que es lo mismo que me pasó en el paso 8 del taller de CQRS con Luis. Antes de
+reenviar habría que revisar si el hecho todavía aplica, o que los eventos lleven una versión
+para que el consumidor pueda ignorar los que ya quedaron viejos.
+
+**Conexión con la Lección 10 (observabilidad):** hoy la DLT guarda los mensajes, pero nadie
+se entera de que llegaron. Para eso hacen falta tres cosas que se ven en observabilidad:
+**métricas** (cuántos mensajes hay en la DLT y cuántos reintentos se hacen), **alertas**
+sobre esas métricas y **trazas** que permitan seguir un evento desde que se publicó hasta que
+falló. Sin eso, la DLT es solo un cajón donde los problemas se acumulan en silencio.
+
+## Por qué reintentar sin fin es lo peor
+
+Reintentar un mensaje venenoso sin fin es peor que perderlo, porque bloquea la partición y
+ningún mensaje bueno que viene detrás se procesa: un solo mensaje roto detiene todo el
+consumidor. Y es peor que mandarlo a una DLT, porque la DLT deja el sistema funcionando **y**
+conserva el mensaje con el diagnóstico del error, mientras que reintentar sin fin no consigue
+ninguna de las dos cosas.
