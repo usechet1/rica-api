@@ -185,6 +185,51 @@ la brecha que cierra el Taller de la Lección 6: hacer que la pregunta pase por 
 
 ---
 
+# Taller Lección 8 — CQRS: una ficha de investigador alimentada por eventos
+
+## Lo que construí y lo que observé
+
+Agregué `consultas-service` (puerto 8083, base `rica_consultas`), que escucha cuatro eventos de
+Kafka y arma una ficha por investigador con sus publicaciones adentro. Solo responde GET.
+
+- **La ficha:** registré a Luis Mora y le creé dos publicaciones. `GET /api/consultas/investigadores/luis.mora@uptc.edu.co`
+  devolvió `"totalPublicaciones": 2` con "Arquitecturas evolutivas" y "CQRS en la practica",
+  sin que consultas-service llamara a investigadores ni a publicaciones.
+- **El ranking:** salió Luis Mora con 2 y Ana Torres con 1, ordenado de mayor a menor.
+- **Lectura caída, escritura intacta:** con consultas-service apagado registré una publicación
+  más ("Consistencia eventual") y respondió 201. Al volver a arrancarlo, el total de Luis subió
+  solo a 3: Kafka había guardado el evento.
+- **La Saga limpia la ficha:** al eliminar a Luis alcancé a ver su ficha en `EN_ELIMINACION` y
+  después respondió 404 ("No hay ficha para el investigador luis.mora@uptc.edu.co").
+- **Reconstrucción:** borré la colección, cambié el `group-id` de `consultas-service-v1` a
+  `consultas-service-v2` y las fichas volvieron solas. Pero Luis, que ya estaba eliminado,
+  **resucitó**: en el log apareció primero "ficha de luis.mora eliminada" y después "ahora tiene 1
+  publicaciones". Los eventos están en tópicos distintos y Kafka no garantiza el orden entre
+  tópicos.
+
+Tres cosas que tuve que adaptar: mis publicaciones no tienen campo `tipo`, así que la ficha no lo
+lleva; en Spring Boot 4 la URI de Mongo es `spring.mongodb.uri` (con la propiedad vieja las fichas
+se iban a la base `test`); y el `group-id` empezó en `-v1` para que el paso 8 realmente cambiara a
+uno nuevo.
+
+## Qué se vería distinto si lectura y escritura usaran el mismo modelo
+
+1. **La ficha con dos publicaciones:** para armarla habría que juntar en cada consulta la tabla
+   de investigadores de PostgreSQL con la colección de publicaciones de Mongo, dos bases y dos
+   servicios por cada GET, en vez de leer un solo documento ya armado.
+2. **El ranking:** habría que contar las publicaciones de todos los investigadores en cada
+   petición; aquí `totalPublicaciones` ya está guardado y Mongo solo ordena por ese campo.
+3. **El log de `Proyección: ...`:** no existiría, porque no habría nada que proyectar; pero
+   tampoco habría consistencia eventual: el total de Luis habría pasado a 3 en el mismo instante y
+   no después de que consultas-service volviera.
+4. **El 404 después de la Saga:** la ficha desaparecería en la misma transacción que borra al
+   investigador; con modelos separados primero se vio `EN_ELIMINACION` y luego el 404.
+5. **La lista reconstruida:** no se podría reconstruir nada, porque el modelo sería la fuente de
+   verdad; si lo borro, pierdo los datos. Con CQRS lo borré y volvió solo, aunque con el riesgo de
+   la resurrección de Luis por el orden entre tópicos.
+
+---
+
 # Taller Lección 9 — EDA: consumidores robustos
 
 ## Lo que observé
